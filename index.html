@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 AI Image Classifier - Alex Mutua</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- React and ReactDOM via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.20.15/babel.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f3e7ff, #e0f7fa);
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+        .main-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.3);
+        }
+        .prediction-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+            backdrop-filter: blur(10px);
+            animation: slideUp 0.5s ease-out;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin: 0.2rem;
+        }
+        .status-pytorch {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+        }
+        .status-tensorflow {
+            background: linear-gradient(45deg, #feca57, #ff9ff3);
+        }
+        .upload-zone {
+            border: 2px dashed rgba(102, 126, 234, 0.5);
+            transition: all 0.3s ease;
+        }
+        .upload-zone:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const App = () => {
+            const [image, setImage] = useState(null);
+            const [previewUrl, setPreviewUrl] = useState(null);
+            const [prediction, setPrediction] = useState(null);
+            const [isLoading, setIsLoading] = useState(false);
+            const [backend, setBackend] = useState('pytorch');
+            const [model, setModel] = useState('CNN Architecture 1');
+
+            // Handle image upload
+            const handleImageUpload = (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    setImage(file);
+                    setPreviewUrl(URL.createObjectURL(file));
+                    setPrediction(null);
+                }
+            };
+
+            // Preprocess image (resize to 28x28, grayscale)
+            const preprocessImage = (file, callback) => {
+                const img = new Image();
+                img.src = URL.createObjectURL(file);
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 28;
+                    canvas.height = 28;
+                    const ctx = canvas.getContext('2d');
+                    // Convert to grayscale
+                    ctx.filter = 'grayscale(100%)';
+                    ctx.drawImage(img, 0, 0, 28, 28);
+                    const imageData = ctx.getImageData(0, 0, 28, 28).data;
+                    // Normalize pixel values to [-1, 1] (like Streamlit app)
+                    const normalized = new Float32Array(28 * 28);
+                    for (let i = 0; i < imageData.length; i += 4) {
+                        normalized[i / 4] = (imageData[i] / 255) * 2 - 1; // Grayscale value
+                    }
+                    callback(normalized);
+                };
+            };
+
+            // Simulate classification (placeholder for server-side inference)
+            const classifyImage = () => {
+                if (!image) return;
+                setIsLoading(true);
+                preprocessImage(image, (data) => {
+                    // Simulate API call to server-side PyTorch/TensorFlow model
+                    // In a real app, send 'data' to a Flask/Express API that loads 'alex_mutua_model.torch'
+                    setTimeout(() => {
+                        // Mock prediction (replace with actual API call)
+                        const mockProbs = Array(10).fill(0).map(() => Math.random());
+                        const sum = mockProbs.reduce((a, b) => a + b, 0);
+                        const normalizedProbs = mockProbs.map(p => p / sum);
+                        const predictedClass = normalizedProbs.indexOf(Math.max(...normalizedProbs));
+                        const confidence = normalizedProbs[predictedClass];
+                        setPrediction({
+                            class: predictedClass,
+                            confidence,
+                            probabilities: normalizedProbs
+                        });
+                        setIsLoading(false);
+                    }, 1000);
+                });
+            };
+
+            // Render probability chart
+            useEffect(() => {
+                if (prediction) {
+                    const ctx = document.getElementById('probChart')?.getContext('2d');
+                    if (ctx) {
+                        new Chart(ctx, {
+                            type: 'bar',
+                            data: {
+                                labels: Array.from({ length: 10 }, (_, i) => i.toString()),
+                                datasets: [{
+                                    label: 'Probability',
+                                    data: prediction.probabilities,
+                                    backgroundColor: ['#667eea', '#764ba2', '#f093fb', '#ff6b6b', '#feca57', '#1dd1a1', '#ff9f43', '#54a0ff', '#00d2d3', '#ff4757'],
+                                    borderColor: ['#ffffff'],
+                                    borderWidth: 1
+                                }]
+                            },
+                            options: {
+                                scales: {
+                                    y: { beginAtZero: true, title: { display: true, text: 'Probability' } },
+                                    x: { title: { display: true, text: 'Class' } }
+                                },
+                                plugins: { legend: { display: false } }
+                            }
+                        });
+                    }
+                }
+            }, [prediction]);
+
+            return (
+                <div className="container mx-auto p-4">
+                    {/* Header */}
+                    <div className="main-header text-white text-center p-12 rounded-3xl relative">
+                        <h1 className="text-4xl font-bold mb-2">🚀 AI Image Classifier</h1>
+                        <p className="text-lg opacity-90">Image Classification with PyTorch & TensorFlow - By Alex Mutua</p>
+                        <div className="mt-4">
+                            <span className="status-badge status-pytorch text-white">PyTorch Ready</span>
+                            <span className="status-badge status-tensorflow text-white">TensorFlow Ready</span>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+                        {/* Upload Section */}
+                        <div>
+                            <h2 className="text-2xl font-semibold mb-4">📤 Upload & Configuration</h2>
+                            <div className="upload-zone p-8 rounded-3xl text-center bg-white bg-opacity-10">
+                                <input
+                                    type="file"
+                                    accept="image/png,image/jpeg"
+                                    onChange={handleImageUpload}
+                                    className="mb-4"
+                                />
+                                <p className="text-sm text-gray-600">Supported formats: PNG, JPG, JPEG</p>
+                            </div>
+                            {previewUrl && (
+                                <div className="mt-4">
+                                    <img src={previewUrl} alt="Uploaded" className="max-w-full rounded-lg" />
+                                    <p className="mt-2 text-sm">📷 Uploaded Image</p>
+                                </div>
+                            )}
+                            <div className="mt-4">
+                                <label className="block text-sm font-medium mb-1">AI Backend</label>
+                                <select
+                                    value={backend}
+                                    onChange={(e) => setBackend(e.target.value)}
+                                    className="w-full p-2 rounded-lg bg-white bg-opacity-10 border border-gray-300"
+                                >
+                                    <option value="pytorch">🔥 PyTorch</option>
+                                    <option value="tensorflow">🟢 TensorFlow</option>
+                                </select>
+                            </div>
+                            <div className="mt-4">
+                                <label className="block text-sm font-medium mb-1">Model Architecture</label>
+                                <select
+                                    value={model}
+                                    onChange={(e) => setModel(e.target.value)}
+                                    className="w-full p-2 rounded-lg bg-white bg-opacity-10 border border-gray-300"
+                                >
+                                    <option value="CNN Architecture 1">CNN Architecture 1</option>
+                                    <option value="CNN Architecture 2">CNN Architecture 2</option>
+                                    <option value="TensorFlow CNN Model">TensorFlow CNN Model</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Results Section */}
+                        <div>
+                            <h2 className="text-2xl font-semibold mb-4">🎯 Classification Results</h2>
+                            {!image && (
+                                <div className="bg-white bg-opacity-10 p-4 rounded-lg">
+                                    <p>👆 Upload an image to start classification</p>
+                                    <div className="mt-4">
+                                        <h3 className="text-lg font-medium">💡 Tips for Best Results</h3>
+                                        <p className="text-sm">
+                                            <strong>Recommended Format:</strong><br />
+                                            - Handwritten digit images (0-9)<br />
+                                            - White or high-contrast background<br />
+                                            - Centered and clearly visible digit
+                                        </p>
+                                        <p className="text-sm mt-2">
+                                            <strong>Optimal Quality:</strong><br />
+                                            - Sufficient resolution (minimum 28x28)<br />
+                                            - Good contrast<br />
+                                            - Minimal noise
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                            {image && (
+                                <button
+                                    onClick={classifyImage}
+                                    disabled={isLoading}
+                                    className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-indigo-600 hover:to-purple-700 disabled:opacity-50"
+                                >
+                                    {isLoading ? '🤖 Classifying...' : '🔮 Classify Image'}
+                                </button>
+                            )}
+                            {prediction && (
+                                <div className="prediction-box text-white text-center p-8 rounded-3xl mt-4">
+                                    <h2 className="text-xl font-semibold">🎯 Result</h2>
+                                    <h1 className="text-5xl my-4">{prediction.class}</h1>
+                                    <h3 className="text-lg">Confidence: {(prediction.confidence * 100).toFixed(1)}%</h3>
+                                    <p className="text-sm opacity-80 mt-4">
+                                        Classifier: {backend.toUpperCase()} • Model: {model}
+                                    </p>
+                                </div>
+                            )}
+                            {prediction && (
+                                <div className="mt-4">
+                                    <h3 className="text-lg font-medium">📊 Full Probability Distribution</h3>
+                                    <canvas id="probChart" className="w-full"></canvas>
+                                    <h3 className="text-lg font-medium mt-4">🏆 Top 3 Predictions</h3>
+                                    {prediction.probabilities
+                                        .map((prob, idx) => ({ prob, class: idx }))
+                                        .sort((a, b) => b.prob - a.prob)
+                                        .slice(0, 3)
+                                        .map((item, idx) => (
+                                            <p key={idx}>
+                                                {['🥇', '🥈', '🥉'][idx]} <strong>Class {item.class}</strong>: {(item.prob * 100).toFixed(1)}%
+                                            </p>
+                                        ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="text-center p-8 mt-8 bg-white bg-opacity-10 rounded-3xl">
+                        <h4 className="text-xl font-semibold">🔬 AI Classification Project</h4>
+                        <p>Developed by <strong>Alex Mutua</strong> • Powered by PyTorch & TensorFlow</p>
+                        <p className="text-sm opacity-70">
+                            Flexible architecture • Cloud-ready deployment • Modern interface
+                        </p>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
